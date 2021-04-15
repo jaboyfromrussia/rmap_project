@@ -20,8 +20,13 @@ library(knitr)
 library(rmarkdown)
 library(AirSensor)
 library(MazamaSpatialUtils)
+###WAQI
+library(claiR)
+library(rgeos)
+library(mapview)
 
 #api_key = "c69997e98686ddc71077096dc80c5204"
+#waqi_api = "f674537293875c91670f274b4e3de5ad41a212e6"
 
 owmr_settings("c69997e98686ddc71077096dc80c5204") #open weather
 initializeMazamaSpatialUtils() #Mazama/ For interacting w/ data
@@ -83,14 +88,16 @@ ui <- dashboardPage(
       tabItem(
         tabName = "m_air",
         tags$style(type = 'text/css', '#air_map {height: calc(100vh - 200px) !important;}'),
-        fluidRow(
-          box(plotOutput("plot1", height = 250)),
+        #fluidRow(
+          #box(plotOutput("plot1", height = 350)),
           
-          box(leafletOutput("airmap", height = 250))
-        ),
-        fluidRow(
-          box(leafletOutput('mazamap', height = 500))
-        )
+          #box(leafletOutput("airmap", height = 250))
+          leafletOutput('mazamap', height = 500),
+          plotOutput('plot1', height = 500)
+        #),
+        #fluidRow(
+          
+        #)
       )
     )
   )
@@ -170,10 +177,14 @@ server <- function(input, output, session){
   })
   
   output$chor_pop <- renderLeaflet({
-        map <- leaflet() %>% addProviderTiles(providers$CartoDB.DarkMatter, 
-                                              options = tileOptions(minZoom = 0, 
-                                                                    maxZoom = 14)) 
-        
+        #json <- fromJSON(getURL("http://api.waqi.info/feed/russia/?token=f674537293875c91670f274b4e3de5ad41a212e6"))
+        #json <- readLines(system.file("C:/Users/jaboy/Documents/Rmap_project/waqi-map-demo.js", package = "js"))
+        #js <- coffee_compile(json)
+        #cat(js)
+        #cat(uglify_optimize(js))
+         leaflet(data = json) %>% 
+          addProviderTiles(providers$CartoDB.DarkMatter, 
+                            options = tileOptions(minZoom = 0, maxZoom = 13))
       })
 
     
@@ -191,7 +202,9 @@ server <- function(input, output, session){
         owmr_as_tibble()
       map <- leaflet() %>% addProviderTiles(providers$CartoDB.DarkMatter, 
                                             options = tileOptions(minZoom = 0, 
-                                                                  maxZoom = 14)) %>%
+                                                                  maxZoom = 13)) %>%
+        # addProviderTiles(providers$Esri.WorldImagery, 
+        #                  options = tileOptions(minZoom = 0, maxZoom = 7)) %>%
         
         
         add_weather(
@@ -210,14 +223,14 @@ server <- function(input, output, session){
   
   output$airmap <- renderLeaflet({
     
-    dataGeo <- aq_locations()
-    dataGeo <- filter(dataGeo, location != "Test Prueba", location != "PA")
+    #dataGeo <- aq_locations()
+    #dataGeo <- filter(dataGeo, location != "Test Prueba", location != "PA")
     
-    worldMap <- map_data(map="world")
+    #worldMap <- map_data(map="world")
     
-    airmap <- ggplot() + geom_map(data=worldMap, map=worldMap,
-                            aes(map_id=region, x=long, y=lat),
-                             fill = "grey60")
+    #airmap <- ggplot() + geom_map(data=worldMap, map=worldMap,
+    #                        aes(map_id=region, x=long, y=lat),
+    #                         fill = "grey60")
     
   })  
   
@@ -225,10 +238,55 @@ server <- function(input, output, session){
   #Still air, but what if in tabs?
   
   histdata <- rnorm(500)
-  
+  ########################################
   output$plot1 <- renderPlot({
-    data <- histdata[seq_len(5)]
-    hist(data)
+    
+    # setArchiveBaseUrl("http://data.mazamascience.com/PurpleAir/v1")
+    # 
+    # # pas <- pas_load(
+    # # )
+    # 
+    # example_sensor <- pat_createNew(
+    #   label = "SCAN_14",
+    #   pas = example_pas,
+    #   startdate = "2018-08-14",
+    #   enddate = "2018-09-07"
+    # )
+    # pat_createAirSensor(parameter = 'pm25', FUN = AirSensor::PurpleAirQC_hourly_AB_01)
+    # 
+    # sensor_pollutionRose(example_sensor)
+    # 
+    
+    pas_tab <- pas_createNew(
+      countryCodes = "GB",
+      includePWFSL = FALSE,
+      lookbackDays = 1,
+      baseUrl = "https://www.purpleair.com/json?all=true"
+      #hourlyData$temperature <- 5/9 * (temperature - 32) probably
+    )
+    
+    #Custom Plot
+    
+    pat <- pat_createNew(
+      id = "93c82260d575fb5b_45851",
+      #label = "London",
+      pas = pas_tab,
+      #baseUrl = "https://api.thingspeak.com/channels/",
+      #verbose = FALSE
+    )
+
+    pat_multiplot(pat)
+    
+    # pat <- pat_createNew(
+    #   label = "Seattle",
+    #   pas = example_pas,
+    #   startdate = 20180701,
+    #   enddate = 20180901
+    # )
+    # pat_multiPlot(pat)
+    
+    
+    
   })
   
   #Mazama air sensor
@@ -254,11 +312,12 @@ server <- function(input, output, session){
     
     pas <- pas_createNew(
       countryCodes = "RU",
-      includePWFSL = TRUE,
+      includePWFSL = FALSE,
       lookbackDays = 1,
       baseUrl = "https://www.purpleair.com/json?all=true"
       #hourlyData$temperature <- 5/9 * (temperature - 32) probably
     )
+    
     
       if ( interactive() ) {
         pas %>%
